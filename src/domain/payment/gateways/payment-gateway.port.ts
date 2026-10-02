@@ -19,9 +19,19 @@ export interface CreatePreferenceResult {
   sandboxInitPoint?: string;
 }
 
+/**
+ * Resultado normalizado do pagamento no gateway (independente do Mercado Pago).
+ * - APPROVED: pagamento confirmado → PAID
+ * - REJECTED: recusado/cancelado → FAIL
+ * - IN_PROGRESS: ainda em análise (pending, in_process, authorized…) → mantém PENDING
+ */
+export type GatewayPaymentOutcome = 'APPROVED' | 'REJECTED' | 'IN_PROGRESS';
+
 export interface MercadoPagoPaymentInfo {
   id: string;
-  status: string;
+  outcome: GatewayPaymentOutcome;
+  /** Status bruto retornado pelo gateway (para logs/diagnóstico). */
+  rawStatus: string;
   externalReference: string | null;
 }
 

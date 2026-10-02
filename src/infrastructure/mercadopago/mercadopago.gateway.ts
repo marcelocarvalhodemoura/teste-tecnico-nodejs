@@ -4,9 +4,29 @@ import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
 import {
   CreatePreferenceInput,
   CreatePreferenceResult,
+  GatewayPaymentOutcome,
   IPaymentGateway,
   MercadoPagoPaymentInfo,
 } from '@domain/payment/gateways/payment-gateway.port';
+
+/**
+ * Status de pagamento do Mercado Pago → resultado de domínio.
+ * Somente approved/rejected/cancelled/refunded/charged_back são finais;
+ * pending, in_process, authorized e in_mediation ainda podem virar approved.
+ */
+export function toGatewayOutcome(status: string | undefined): GatewayPaymentOutcome {
+  switch (status) {
+    case 'approved':
+      return 'APPROVED';
+    case 'rejected':
+    case 'cancelled':
+    case 'refunded':
+    case 'charged_back':
+      return 'REJECTED';
+    default:
+      return 'IN_PROGRESS';
+  }
+}
 
 /**
  * =============================================================================
@@ -96,7 +116,8 @@ export class MercadoPagoGateway implements IPaymentGateway {
 
     return {
       id: String(result.id),
-      status: result.status ?? 'unknown',
+      outcome: toGatewayOutcome(result.status),
+      rawStatus: result.status ?? 'unknown',
       externalReference: result.external_reference ?? null,
     };
   }

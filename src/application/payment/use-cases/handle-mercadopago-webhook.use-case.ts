@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   IPaymentRepository,
   PAYMENT_REPOSITORY,
@@ -14,6 +14,9 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { MercadoPagoWebhookDto } from '../dto/payment.schemas';
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * =============================================================================
  * INTEGRAÇÃO (doc §3): Callback / notificação do Mercado Pago.
@@ -21,6 +24,10 @@ import { MercadoPagoWebhookDto } from '../dto/payment.schemas';
  *
  * Segurança: valida payload; consulta a API oficial (não confia só no body).
  * Temporal (doc §4): se habilitado, sinaliza o workflow em vez de atualizar direto.
+ *
+ * Robustez: notificações que não devem alterar o pagamento (outro tipo,
+ * status ainda em análise, pagamento já finalizado ou desconhecido) retornam
+ * 200 com processed=false — assim o Mercado Pago não reenvia indefinidamente.
  * =============================================================================
  */
 @Injectable()
@@ -38,6 +45,11 @@ export class HandleMercadoPagoWebhookUseCase {
   ) {}
 
   async execute(payload: MercadoPagoWebhookDto) {
+    // merchant_order, plan, subscription etc. não são pagamentos
+    if (payload.type && payload.type !== 'payment') {
+      return { processed: false, reason: 'unsupported_type' };
+    }
+
     const mpPaymentId = payload.data?.id?.toString();
     if (!mpPaymentId) {
       this.logger.warn('Webhook sem data.id — ignorado');
@@ -48,19 +60,44 @@ export class HandleMercadoPagoWebhookUseCase {
     const mpPayment = await this.paymentGateway.getPayment(mpPaymentId);
     const externalReference = mpPayment.externalReference;
 
-    if (!externalReference) {
-      this.logger.warn(`Pagamento MP ${mpPaymentId} sem external_reference`);
+    if (!externalReference || !UUID_REGEX.test(externalReference)) {
+      this.logger.warn(
+        `Pagamento MP ${mpPaymentId} sem external_reference válido`,
+      );
       return { processed: false, reason: 'missing_external_reference' };
     }
 
     const payment = await this.paymentRepository.findById(externalReference);
     if (!payment) {
-      throw new NotFoundException(
+      this.logger.warn(
         `Pagamento local ${externalReference} não encontrado para webhook`,
       );
+      return { processed: false, reason: 'payment_not_found' };
     }
 
-    const approved = mpPayment.status === 'approved';
+    if (payment.isTerminal()) {
+      return {
+        processed: false,
+        reason: 'already_final',
+        paymentId: payment.id,
+        status: payment.status,
+      };
+    }
+
+    // pending / in_process / authorized: ainda pode ser aprovado — mantém PENDING
+    if (mpPayment.outcome === 'IN_PROGRESS') {
+      this.logger.log(
+        `Webhook com status não final payment=${payment.id} mpStatus=${mpPayment.rawStatus}`,
+      );
+      return {
+        processed: false,
+        reason: 'non_final_status',
+        paymentId: payment.id,
+        gatewayStatus: mpPayment.rawStatus,
+      };
+    }
+
+    const approved = mpPayment.outcome === 'APPROVED';
     const temporalEnabled = this.config.get<boolean>('TEMPORAL_ENABLED', false);
 
     if (temporalEnabled) {
