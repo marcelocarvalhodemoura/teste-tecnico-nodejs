@@ -3,6 +3,7 @@ import {
   Post,
   Body,
   Headers,
+  Query,
   Logger,
   UnauthorizedException,
   HttpCode,
@@ -10,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import { SkipThrottle } from '@nestjs/throttler';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { HandleMercadoPagoWebhookUseCase } from '@application/payment/use-cases/handle-mercadopago-webhook.use-case';
 import {
@@ -29,6 +31,8 @@ const WEBHOOK_MAX_AGE_SECONDS = 300;
  * =============================================================================
  */
 @ApiTags('webhooks')
+// Rajadas de notificações do MP não devem ser bloqueadas pelo rate limit (HMAC protege)
+@SkipThrottle()
 @Controller('webhooks/mercadopago')
 export class MercadoPagoWebhookController {
   private readonly logger = new Logger(MercadoPagoWebhookController.name);
@@ -48,8 +52,9 @@ export class MercadoPagoWebhookController {
     body: MercadoPagoWebhookDto,
     @Headers('x-signature') signature?: string,
     @Headers('x-request-id') requestId?: string,
+    @Query('data.id') queryDataId?: string,
   ) {
-    this.verifySignature(signature, requestId, body);
+    this.verifySignature(signature, requestId, queryDataId ?? body.data?.id);
 
     this.logger.log(`Webhook recebido type=${body.type} action=${body.action}`);
     return this.handleWebhook.execute(body);
@@ -58,7 +63,7 @@ export class MercadoPagoWebhookController {
   private verifySignature(
     signature: string | undefined,
     requestId: string | undefined,
-    body: MercadoPagoWebhookDto,
+    rawDataId: string | number | undefined,
   ): void {
     const secret = this.config.get<string>('MERCADOPAGO_WEBHOOK_SECRET');
     if (!secret || secret === 'your-webhook-secret-here') {
@@ -68,7 +73,7 @@ export class MercadoPagoWebhookController {
       return;
     }
 
-    if (!signature || !requestId || !body.data?.id) {
+    if (!signature || !requestId || rawDataId === undefined) {
       throw new UnauthorizedException('Assinatura do webhook inválida');
     }
 
@@ -91,7 +96,8 @@ export class MercadoPagoWebhookController {
       throw new UnauthorizedException('Timestamp do webhook expirado (replay)');
     }
 
-    const dataId = String(body.data.id);
+    // Manifesto do MP: data.id da query string, em minúsculas se alfanumérico
+    const dataId = String(rawDataId).toLowerCase();
     const manifest = `id:${dataId};request-id:${requestId};ts:${ts};`;
     const expected = createHmac('sha256', secret).update(manifest).digest('hex');
 

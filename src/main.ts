@@ -32,6 +32,11 @@ async function bootstrap() {
     .split(',')
     .map((o) => o.trim());
 
+  if (config.get<boolean>('TRUST_PROXY', false)) {
+    // Atrás de LB/proxy: usa X-Forwarded-For como IP do cliente (rate limit)
+    app.set('trust proxy', 1);
+  }
+
   app.setGlobalPrefix(prefix);
   app.use(helmet());
   app.enableCors({

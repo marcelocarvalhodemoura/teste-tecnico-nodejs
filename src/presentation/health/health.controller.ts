@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { PrismaService } from '@infrastructure/database/prisma.service';
 import { Public } from '@shared/decorators/public.decorator';
@@ -6,6 +6,7 @@ import { Public } from '@shared/decorators/public.decorator';
 /**
  * Healthcheck para Docker / load balancer.
  * Verifica conectividade com PostgreSQL via Prisma.
+ * Banco fora → 503, para o HEALTHCHECK do Docker / load balancer detectar.
  * @Public — sem API Key (probes de infra).
  */
 @ApiTags('health')
@@ -25,12 +26,15 @@ export class HealthController {
       database = 'down';
     }
 
-    const status = database === 'up' ? 'ok' : 'degraded';
-
-    return {
-      status,
+    const body = {
+      status: database === 'up' ? 'ok' : 'degraded',
       database,
       timestamp: new Date().toISOString(),
     };
+
+    if (database === 'down') {
+      throw new ServiceUnavailableException(body);
+    }
+    return body;
   }
 }

@@ -46,6 +46,11 @@ export const envSchema = z
     THROTTLE_TTL_MS: z.coerce.number().int().positive().default(60_000),
     THROTTLE_LIMIT: z.coerce.number().int().positive().default(100),
     CORS_ORIGINS: z.string().default('http://localhost:3000'),
+    /** true quando atrás de load balancer/proxy reverso (IP real para o rate limit). */
+    TRUST_PROXY: z
+      .string()
+      .transform((v) => v === 'true')
+      .default('false'),
 
     /**
      * API Key (header x-api-key).
@@ -62,6 +67,18 @@ export const envSchema = z
         code: z.ZodIssueCode.custom,
         path: ['API_KEY'],
         message: 'API_KEY é obrigatória em production',
+      });
+    }
+    const secret = data.MERCADOPAGO_WEBHOOK_SECRET?.trim();
+    if (
+      data.NODE_ENV === 'production' &&
+      (!secret || secret === 'your-webhook-secret-here')
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['MERCADOPAGO_WEBHOOK_SECRET'],
+        message:
+          'MERCADOPAGO_WEBHOOK_SECRET é obrigatória em production (assinatura do webhook)',
       });
     }
   });
