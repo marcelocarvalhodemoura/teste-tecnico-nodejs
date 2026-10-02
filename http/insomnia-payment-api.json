@@ -1,0 +1,596 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2026-10-02T00:00:00.000Z",
+  "__export_source": "payment-api.claude",
+  "resources": [
+    {
+      "_id": "wrk_payment_api",
+      "_type": "workspace",
+      "parentId": null,
+      "name": "Payment API — Teste Técnico",
+      "description": "Coleção para testar a Payment API (PIX + Checkout Pro Mercado Pago).",
+      "scope": "collection"
+    },
+    {
+      "_id": "env_base",
+      "_type": "environment",
+      "parentId": "wrk_payment_api",
+      "name": "Base Environment",
+      "data": {},
+      "isPrivate": false
+    },
+    {
+      "_id": "env_local",
+      "_type": "environment",
+      "parentId": "env_base",
+      "name": "Local (porta 3002)",
+      "color": "#7d69cb",
+      "isPrivate": false,
+      "data": {
+        "base_url": "http://localhost:3002/api",
+        "api_key": "local-test-key-1234567890",
+        "cpf": "529.982.247-25",
+        "pix_id": "{% response 'body', 'req_pix_create', 'b64::JC5pZA==::46b', 'never', 60 %}",
+        "card_id": "{% response 'body', 'req_card_create', 'b64::JC5pZA==::46b', 'never', 60 %}"
+      }
+    },
+    {
+      "_id": "fld_health",
+      "_type": "request_group",
+      "parentId": "wrk_payment_api",
+      "name": "0. Health",
+      "metaSortKey": 0
+    },
+    {
+      "_id": "fld_pix",
+      "_type": "request_group",
+      "parentId": "wrk_payment_api",
+      "name": "1. PIX",
+      "metaSortKey": 1
+    },
+    {
+      "_id": "fld_card",
+      "_type": "request_group",
+      "parentId": "wrk_payment_api",
+      "name": "2. Cartão de crédito (Checkout Pro)",
+      "metaSortKey": 2
+    },
+    {
+      "_id": "fld_query",
+      "_type": "request_group",
+      "parentId": "wrk_payment_api",
+      "name": "3. Consultas",
+      "metaSortKey": 3
+    },
+    {
+      "_id": "fld_validation",
+      "_type": "request_group",
+      "parentId": "wrk_payment_api",
+      "name": "4. Validações e erros",
+      "metaSortKey": 4
+    },
+    {
+      "_id": "fld_webhook",
+      "_type": "request_group",
+      "parentId": "wrk_payment_api",
+      "name": "5. Webhook Mercado Pago",
+      "metaSortKey": 5
+    },
+    {
+      "_id": "req_health",
+      "_type": "request",
+      "parentId": "fld_health",
+      "name": "Health (público)",
+      "method": "GET",
+      "url": "{{ _.base_url }}/health",
+      "description": "Sem API Key. 200 com banco ok; 503 se o banco cair.",
+      "metaSortKey": 0,
+      "headers": [],
+      "body": {},
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_pix_create",
+      "_type": "request",
+      "parentId": "fld_pix",
+      "name": "Criar PIX",
+      "method": "POST",
+      "url": "{{ _.base_url }}/payment",
+      "description": "Cria PIX com status PENDING. Rode este antes das requisições que usam {{ _.pix_id }}.",
+      "metaSortKey": 0,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "x-api-key",
+          "value": "{{ _.api_key }}"
+        },
+        {
+          "name": "Idempotency-Key",
+          "value": "insomnia-pix-001"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"cpf\": \"{{ _.cpf }}\",\n  \"description\": \"Assinatura mensal\",\n  \"amount\": 99.9,\n  \"paymentMethod\": \"PIX\"\n}"
+      },
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_pix_replay",
+      "_type": "request",
+      "parentId": "fld_pix",
+      "name": "Replay idempotente (mesma chave e payload)",
+      "method": "POST",
+      "url": "{{ _.base_url }}/payment",
+      "description": "Retorna o MESMO pagamento com idempotentReplay=true.",
+      "metaSortKey": 1,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "x-api-key",
+          "value": "{{ _.api_key }}"
+        },
+        {
+          "name": "Idempotency-Key",
+          "value": "insomnia-pix-001"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"cpf\": \"{{ _.cpf }}\",\n  \"description\": \"Assinatura mensal\",\n  \"amount\": 99.9,\n  \"paymentMethod\": \"PIX\"\n}"
+      },
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_pix_desc",
+      "_type": "request",
+      "parentId": "fld_pix",
+      "name": "Atualizar descrição",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/payment/{{ _.pix_id }}",
+      "description": "",
+      "metaSortKey": 2,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "x-api-key",
+          "value": "{{ _.api_key }}"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"description\": \"Assinatura mensal — atualizada\"\n}"
+      },
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_pix_paid",
+      "_type": "request",
+      "parentId": "fld_pix",
+      "name": "Marcar como PAID (manual, só PIX)",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/payment/{{ _.pix_id }}",
+      "description": "PENDING → PAID. Rodar de novo com FAIL depois retorna 422 (status final).",
+      "metaSortKey": 3,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "x-api-key",
+          "value": "{{ _.api_key }}"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"status\": \"PAID\"\n}"
+      },
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_pix_fail_after",
+      "_type": "request",
+      "parentId": "fld_pix",
+      "name": "Tentar FAIL após PAID (espera 422)",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/payment/{{ _.pix_id }}",
+      "description": "",
+      "metaSortKey": 4,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "x-api-key",
+          "value": "{{ _.api_key }}"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"status\": \"FAIL\"\n}"
+      },
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_card_create",
+      "_type": "request",
+      "parentId": "fld_card",
+      "name": "Criar cartão → checkoutUrl",
+      "method": "POST",
+      "url": "{{ _.base_url }}/payment",
+      "description": "Cria a preferência no Mercado Pago. Abra o checkoutUrl da resposta no navegador e pague com cartão de teste (titular APRO = aprovado, OTHE = recusado, CONT = pendente). O webhook atualiza o status.",
+      "metaSortKey": 0,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "x-api-key",
+          "value": "{{ _.api_key }}"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"cpf\": \"{{ _.cpf }}\",\n  \"description\": \"Teste real Mercado Pago\",\n  \"amount\": 10.5,\n  \"paymentMethod\": \"CREDIT_CARD\"\n}"
+      },
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_card_get",
+      "_type": "request",
+      "parentId": "fld_card",
+      "name": "Consultar status do cartão",
+      "method": "GET",
+      "url": "{{ _.base_url }}/payment/{{ _.card_id }}",
+      "description": "Depois de pagar no checkout: status deve ser PAID (APRO), FAIL (OTHE) ou continuar PENDING (CONT).",
+      "metaSortKey": 1,
+      "headers": [
+        {
+          "name": "x-api-key",
+          "value": "{{ _.api_key }}"
+        }
+      ],
+      "body": {},
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_card_manual",
+      "_type": "request",
+      "parentId": "fld_card",
+      "name": "Status manual em cartão (espera 409)",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/payment/{{ _.card_id }}",
+      "description": "Cartão só muda de status pelo callback do Mercado Pago.",
+      "metaSortKey": 2,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "x-api-key",
+          "value": "{{ _.api_key }}"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"status\": \"PAID\"\n}"
+      },
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_get_pix",
+      "_type": "request",
+      "parentId": "fld_query",
+      "name": "Buscar PIX por ID",
+      "method": "GET",
+      "url": "{{ _.base_url }}/payment/{{ _.pix_id }}",
+      "description": "",
+      "metaSortKey": 0,
+      "headers": [
+        {
+          "name": "x-api-key",
+          "value": "{{ _.api_key }}"
+        }
+      ],
+      "body": {},
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_list_all",
+      "_type": "request",
+      "parentId": "fld_query",
+      "name": "Listar todos (paginado)",
+      "method": "GET",
+      "url": "{{ _.base_url }}/payment?page=1&limit=20",
+      "description": "",
+      "metaSortKey": 1,
+      "headers": [
+        {
+          "name": "x-api-key",
+          "value": "{{ _.api_key }}"
+        }
+      ],
+      "body": {},
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_list_cpf",
+      "_type": "request",
+      "parentId": "fld_query",
+      "name": "Listar por CPF + meio",
+      "method": "GET",
+      "url": "{{ _.base_url }}/payment?cpf=52998224725&paymentMethod=PIX",
+      "description": "",
+      "metaSortKey": 2,
+      "headers": [
+        {
+          "name": "x-api-key",
+          "value": "{{ _.api_key }}"
+        }
+      ],
+      "body": {},
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_list_status",
+      "_type": "request",
+      "parentId": "fld_query",
+      "name": "Listar por status",
+      "method": "GET",
+      "url": "{{ _.base_url }}/payment?status=PENDING",
+      "description": "",
+      "metaSortKey": 3,
+      "headers": [
+        {
+          "name": "x-api-key",
+          "value": "{{ _.api_key }}"
+        }
+      ],
+      "body": {},
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_v_nokey",
+      "_type": "request",
+      "parentId": "fld_validation",
+      "name": "Sem API Key (espera 401)",
+      "method": "POST",
+      "url": "{{ _.base_url }}/payment",
+      "description": "",
+      "metaSortKey": 0,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"cpf\": \"{{ _.cpf }}\",\n  \"description\": \"Sem chave\",\n  \"amount\": 10,\n  \"paymentMethod\": \"PIX\"\n}"
+      },
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_v_cpf",
+      "_type": "request",
+      "parentId": "fld_validation",
+      "name": "CPF inválido (espera 400)",
+      "method": "POST",
+      "url": "{{ _.base_url }}/payment",
+      "description": "",
+      "metaSortKey": 1,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "x-api-key",
+          "value": "{{ _.api_key }}"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"cpf\": \"123.456.789-00\",\n  \"description\": \"CPF inválido\",\n  \"amount\": 10,\n  \"paymentMethod\": \"PIX\"\n}"
+      },
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_v_dec",
+      "_type": "request",
+      "parentId": "fld_validation",
+      "name": "Amount com 3 casas (espera 400)",
+      "method": "POST",
+      "url": "{{ _.base_url }}/payment",
+      "description": "",
+      "metaSortKey": 2,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "x-api-key",
+          "value": "{{ _.api_key }}"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"cpf\": \"{{ _.cpf }}\",\n  \"description\": \"Decimais\",\n  \"amount\": 10.555,\n  \"paymentMethod\": \"PIX\"\n}"
+      },
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_v_method",
+      "_type": "request",
+      "parentId": "fld_validation",
+      "name": "Meio inválido (espera 400)",
+      "method": "POST",
+      "url": "{{ _.base_url }}/payment",
+      "description": "",
+      "metaSortKey": 3,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "x-api-key",
+          "value": "{{ _.api_key }}"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"cpf\": \"{{ _.cpf }}\",\n  \"description\": \"Boleto\",\n  \"amount\": 10,\n  \"paymentMethod\": \"BOLETO\"\n}"
+      },
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_v_immutable",
+      "_type": "request",
+      "parentId": "fld_validation",
+      "name": "Alterar campo imutável (espera 400)",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/payment/{{ _.pix_id }}",
+      "description": "",
+      "metaSortKey": 4,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "x-api-key",
+          "value": "{{ _.api_key }}"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"amount\": 1\n}"
+      },
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_v_idem",
+      "_type": "request",
+      "parentId": "fld_validation",
+      "name": "Mesma Idempotency-Key, payload diferente (espera 422)",
+      "method": "POST",
+      "url": "{{ _.base_url }}/payment",
+      "description": "Rode depois de 'Criar PIX'.",
+      "metaSortKey": 5,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "x-api-key",
+          "value": "{{ _.api_key }}"
+        },
+        {
+          "name": "Idempotency-Key",
+          "value": "insomnia-pix-001"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"cpf\": \"{{ _.cpf }}\",\n  \"description\": \"Assinatura mensal\",\n  \"amount\": 500,\n  \"paymentMethod\": \"PIX\"\n}"
+      },
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_v_uuid",
+      "_type": "request",
+      "parentId": "fld_validation",
+      "name": "ID não-UUID (espera 400)",
+      "method": "GET",
+      "url": "{{ _.base_url }}/payment/123",
+      "description": "",
+      "metaSortKey": 6,
+      "headers": [
+        {
+          "name": "x-api-key",
+          "value": "{{ _.api_key }}"
+        }
+      ],
+      "body": {},
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_v_404",
+      "_type": "request",
+      "parentId": "fld_validation",
+      "name": "ID inexistente (espera 404)",
+      "method": "GET",
+      "url": "{{ _.base_url }}/payment/00000000-0000-4000-8000-000000000000",
+      "description": "",
+      "metaSortKey": 7,
+      "headers": [
+        {
+          "name": "x-api-key",
+          "value": "{{ _.api_key }}"
+        }
+      ],
+      "body": {},
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_wh_ignored",
+      "_type": "request",
+      "parentId": "fld_webhook",
+      "name": "Notificação de outro tipo (ignorada)",
+      "method": "POST",
+      "url": "{{ _.base_url }}/webhooks/mercadopago",
+      "description": "Público (sem API Key). Retorna processed=false, reason=unsupported_type. Se MERCADOPAGO_WEBHOOK_SECRET estiver definido, responde 401 (falta x-signature) — esperado. O webhook real chega sozinho pelo ngrok após o pagamento no checkout.",
+      "metaSortKey": 0,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"type\": \"merchant_order\",\n  \"data\": {\n    \"id\": \"123\"\n  }\n}"
+      },
+      "parameters": [],
+      "authentication": {}
+    }
+  ]
+}

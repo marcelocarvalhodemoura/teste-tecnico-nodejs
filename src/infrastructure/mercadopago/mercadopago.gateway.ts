@@ -68,34 +68,44 @@ export class MercadoPagoGateway implements IPaymentGateway {
     const notificationUrl = this.config.get<string>('MERCADOPAGO_NOTIFICATION_URL');
     const idempotencyKey = input.idempotencyKey ?? input.paymentId;
 
+    // back_urls são opcionais; auto_return só é aceito pelo MP com back_urls.success
+    const successUrl = this.config.get<string>('MERCADOPAGO_BACK_URL_SUCCESS');
+    const redirect = successUrl
+      ? {
+          back_urls: {
+            success: successUrl,
+            failure: this.config.get<string>('MERCADOPAGO_BACK_URL_FAILURE'),
+            pending: this.config.get<string>('MERCADOPAGO_BACK_URL_PENDING'),
+          },
+          auto_return: 'approved',
+        }
+      : {};
+
     this.logger.log(`Criando preferência Mercado Pago para paymentId=${input.paymentId}`);
 
-    const result = await this.preferenceClient.create({
-      body: {
-        items: [
-          {
-            id: input.paymentId,
-            title: input.title,
-            quantity: 1,
-            unit_price: input.amount,
-            currency_id: 'BRL',
-          },
-        ],
-        // external_reference liga o callback ao pagamento local (doc §3)
-        external_reference: input.paymentId,
-        notification_url: notificationUrl,
-        back_urls: {
-          success: this.config.get<string>('MERCADOPAGO_BACK_URL_SUCCESS'),
-          failure: this.config.get<string>('MERCADOPAGO_BACK_URL_FAILURE'),
-          pending: this.config.get<string>('MERCADOPAGO_BACK_URL_PENDING'),
+    const result = await this.call('criar preferência', () =>
+      this.preferenceClient.create({
+        body: {
+          items: [
+            {
+              id: input.paymentId,
+              title: input.title,
+              quantity: 1,
+              unit_price: input.amount,
+              currency_id: 'BRL',
+            },
+          ],
+          // external_reference liga o callback ao pagamento local (doc §3)
+          external_reference: input.paymentId,
+          notification_url: notificationUrl,
+          ...redirect,
+          statement_descriptor: 'PAYMENT API',
         },
-        auto_return: 'approved',
-        statement_descriptor: 'PAYMENT API',
-      },
-      requestOptions: {
-        idempotencyKey,
-      },
-    });
+        requestOptions: {
+          idempotencyKey,
+        },
+      }),
+    );
 
     const checkoutUrl = this.useSandbox ? result.sandbox_init_point : result.init_point;
 
@@ -107,7 +117,9 @@ export class MercadoPagoGateway implements IPaymentGateway {
   }
 
   async getPayment(paymentId: string): Promise<MercadoPagoPaymentInfo> {
-    const result = await this.paymentClient.get({ id: paymentId });
+    const result = await this.call('consultar pagamento', () =>
+      this.paymentClient.get({ id: paymentId }),
+    );
 
     return {
       id: String(result.id),
@@ -115,5 +127,28 @@ export class MercadoPagoGateway implements IPaymentGateway {
       rawStatus: result.status ?? 'unknown',
       externalReference: result.external_reference ?? null,
     };
+  }
+
+  /**
+   * O SDK do Mercado Pago rejeita com o JSON de erro da API (objeto comum, não Error):
+   * sem esta conversão o motivo da falha (status, message, cause) se perde nos logs.
+   */
+  private async call<T>(operation: string, fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (error) {
+      if (error instanceof Error) throw error;
+      const body = (error ?? {}) as {
+        status?: number;
+        message?: string;
+        error?: string;
+        cause?: unknown;
+      };
+      const detail = body.message ?? body.error ?? 'erro desconhecido';
+      const cause = body.cause ? ` cause=${JSON.stringify(body.cause)}` : '';
+      throw new Error(
+        `Mercado Pago: falha ao ${operation} (status=${body.status ?? '?'}): ${detail}${cause}`,
+      );
+    }
   }
 }
