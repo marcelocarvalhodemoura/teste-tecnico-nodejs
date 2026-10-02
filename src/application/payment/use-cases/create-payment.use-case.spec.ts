@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -152,6 +153,18 @@ describe('CreatePaymentUseCase', () => {
     expect(workflow.startCreditCardPayment).toHaveBeenCalled();
     expect(gateway.createCheckoutPreference).not.toHaveBeenCalled();
     expect(result.workflowId).toBe('credit-card-xyz');
+  });
+
+  it('CREDIT_CARD + Temporal: falha ao iniciar workflow deve marcar FAIL', async () => {
+    config.get.mockReturnValue(true);
+    workflow.startCreditCardPayment.mockRejectedValue(new Error('temporal down'));
+
+    await expect(
+      useCase.execute({ ...dto, paymentMethod: PaymentMethod.CREDIT_CARD }),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+
+    const updated = repository.update.mock.calls[0][0] as Payment;
+    expect(updated.status).toBe(PaymentStatus.FAIL);
   });
 
   it('CREDIT_CARD: falha no gateway deve marcar FAIL', async () => {

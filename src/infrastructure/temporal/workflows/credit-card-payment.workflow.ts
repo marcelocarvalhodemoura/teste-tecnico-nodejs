@@ -49,11 +49,21 @@ export async function creditCardPaymentWorkflow(
   });
 
   // Passo 2 (doc §4): chamar serviço de integração Mercado Pago
-  await createMercadoPagoPreference({
-    paymentId: input.paymentId,
-    title: input.description,
-    amount: input.amount,
-  });
+  try {
+    await createMercadoPagoPreference({
+      paymentId: input.paymentId,
+      title: input.description,
+      amount: input.amount,
+    });
+  } catch {
+    // Retries esgotados: compensa marcando FAIL (senão ficaria PENDING para sempre)
+    await updatePaymentStatus({
+      paymentId: input.paymentId,
+      status: 'FAIL',
+      mercadoPagoPaymentId: null,
+    });
+    return { status: 'FAIL' };
+  }
 
   // Passo 3 (doc §4): aguardar retorno de forma durável (até 24h)
   const received = await condition(() => approved !== null, '24 hours');

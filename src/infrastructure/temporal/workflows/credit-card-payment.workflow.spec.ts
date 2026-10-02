@@ -6,6 +6,7 @@
  */
 import { TestWorkflowEnvironment } from '@temporalio/testing';
 import { Worker } from '@temporalio/worker';
+import { ApplicationFailure } from '@temporalio/activity';
 import {
   creditCardPaymentWorkflow,
   paymentResultSignal,
@@ -97,6 +98,39 @@ describe('creditCardPaymentWorkflow (Temporal time-skipping)', () => {
       expect(result.status).toBe('FAIL');
       expect(updatePaymentStatus).toHaveBeenCalledWith(
         expect.objectContaining({
+          status: 'FAIL',
+        }),
+      );
+    });
+  });
+
+  it('marca FAIL quando a criação da preferência falha (compensação)', async () => {
+    const { client, nativeConnection } = testEnv;
+    const updatePaymentStatus = jest.fn(async () => undefined);
+
+    const worker = await Worker.create({
+      connection: nativeConnection,
+      taskQueue: 'test-payment-mp-down',
+      workflowsPath: require.resolve('./credit-card-payment.workflow'),
+      activities: {
+        createMercadoPagoPreference: async () => {
+          throw ApplicationFailure.nonRetryable('Mercado Pago indisponível');
+        },
+        updatePaymentStatus,
+      },
+    });
+
+    await worker.runUntil(async () => {
+      const result = await client.workflow.execute(creditCardPaymentWorkflow, {
+        args: [{ ...input, paymentId: '33333333-3333-3333-3333-333333333333' }],
+        workflowId: `wf-mp-down-${Date.now()}`,
+        taskQueue: 'test-payment-mp-down',
+      });
+
+      expect(result.status).toBe('FAIL');
+      expect(updatePaymentStatus).toHaveBeenCalledWith(
+        expect.objectContaining({
+          paymentId: '33333333-3333-3333-3333-333333333333',
           status: 'FAIL',
         }),
       );

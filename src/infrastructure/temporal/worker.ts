@@ -2,11 +2,18 @@
  * =============================================================================
  * TEMPORAL WORKER (doc §4)
  * Processo separado (ou mesmo container) que executa workflows/activities.
- * Rodar: npx ts-node -r tsconfig-paths/register src/infrastructure/temporal/worker.ts
+ * Rodar: npm run worker:temporal (dev) | node dist/infrastructure/temporal/worker.js (prod)
  * =============================================================================
  */
 import { NativeConnection, Worker } from '@temporalio/worker';
 import * as activities from './payment.activities';
+
+// Execução local: carrega o .env (Node ≥ 20.12). No Docker as variáveis já vêm do env_file.
+try {
+  process.loadEnvFile();
+} catch {
+  // sem .env — usa apenas process.env
+}
 
 async function run() {
   const address = process.env.TEMPORAL_ADDRESS || 'localhost:7233';

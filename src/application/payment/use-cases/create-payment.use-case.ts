@@ -3,6 +3,7 @@ import {
   Injectable,
   ConflictException,
   Logger,
+  ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -115,13 +116,27 @@ export class CreatePaymentUseCase {
     const temporalEnabled = this.config.get<boolean>('TEMPORAL_ENABLED', false);
 
     if (temporalEnabled) {
-      // doc §4 — Temporal: workflow registra PENDING, chama MP e aguarda resultado
-      const { workflowId } = await this.paymentWorkflow.startCreditCardPayment({
-        paymentId: saved.id,
-        description: saved.description,
-        amount: saved.amount.toReais(),
-        cpf: saved.cpf.getValue(),
-      });
+      // doc §4 — Temporal: workflow chama MP e aguarda resultado de forma durável
+      let workflowId: string;
+      try {
+        ({ workflowId } = await this.paymentWorkflow.startCreditCardPayment({
+          paymentId: saved.id,
+          description: saved.description,
+          amount: saved.amount.toReais(),
+          cpf: saved.cpf.getValue(),
+        }));
+      } catch (error) {
+        // Sem workflow ninguém finalizaria o pagamento: evita PENDING órfão
+        this.logger.error(
+          `Falha ao iniciar workflow Temporal para payment=${saved.id}`,
+          error instanceof Error ? error.stack : undefined,
+        );
+        saved.updateStatus(PaymentStatus.FAIL, 'gateway');
+        await this.paymentRepository.update(saved);
+        throw new ServiceUnavailableException(
+          'Falha ao iniciar o processamento do pagamento. Pagamento marcado como FAIL.',
+        );
+      }
 
       return {
         ...saved.toPrimitives(),

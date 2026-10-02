@@ -1,4 +1,10 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Client, Connection } from '@temporalio/client';
 import {
@@ -18,16 +24,15 @@ export class TemporalPaymentWorkflow
   implements IPaymentWorkflow, OnModuleInit, OnModuleDestroy
 {
   private readonly logger = new Logger(TemporalPaymentWorkflow.name);
-  private client: Client | null = null;
   private connection: Connection | null = null;
-  private enabled = false;
+  /** Conexão em andamento/estabelecida — compartilhada entre requisições. */
+  private clientPromise: Promise<Client> | null = null;
   private taskQueue = 'payment-processing';
 
   constructor(private readonly config: ConfigService) {}
 
   async onModuleInit(): Promise<void> {
-    this.enabled = this.config.get<boolean>('TEMPORAL_ENABLED', false);
-    if (!this.enabled) {
+    if (!this.config.get<boolean>('TEMPORAL_ENABLED', false)) {
       this.logger.warn('Temporal desabilitado (TEMPORAL_ENABLED=false)');
       return;
     }
@@ -37,25 +42,9 @@ export class TemporalPaymentWorkflow
       'payment-processing',
     );
 
-    try {
-      this.connection = await Connection.connect({
-        address: this.config.get<string>('TEMPORAL_ADDRESS', 'localhost:7233'),
-      });
-
-      this.client = new Client({
-        connection: this.connection,
-        namespace: this.config.get<string>('TEMPORAL_NAMESPACE', 'default'),
-      });
-
-      this.logger.log('Cliente Temporal conectado');
-    } catch (error) {
-      // Resiliência: API sobe mesmo se Temporal estiver indisponível no boot
-      this.logger.error(
-        'Falha ao conectar no Temporal — workflows CREDIT_CARD indisponíveis até reconexão',
-        error instanceof Error ? error.stack : undefined,
-      );
-      this.client = null;
-    }
+    // Resiliência: API sobe mesmo se Temporal estiver indisponível no boot;
+    // a conexão é refeita sob demanda na próxima requisição.
+    await this.getClient().catch(() => undefined);
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -65,13 +54,10 @@ export class TemporalPaymentWorkflow
   async startCreditCardPayment(
     input: StartCreditCardWorkflowInput,
   ): Promise<{ workflowId: string }> {
-    if (!this.client) {
-      throw new Error('Temporal client não inicializado');
-    }
-
+    const client = await this.getClient();
     const workflowId = `credit-card-${input.paymentId}`;
 
-    await this.client.workflow.start('creditCardPaymentWorkflow', {
+    await client.workflow.start('creditCardPaymentWorkflow', {
       taskQueue: this.taskQueue,
       workflowId,
       args: [input],
@@ -86,14 +72,39 @@ export class TemporalPaymentWorkflow
     approved: boolean,
     mercadoPagoPaymentId: string,
   ): Promise<void> {
-    if (!this.client) {
-      throw new Error('Temporal client não inicializado');
-    }
-
-    const handle = this.client.workflow.getHandle(`credit-card-${paymentId}`);
+    const client = await this.getClient();
+    const handle = client.workflow.getHandle(`credit-card-${paymentId}`);
     await handle.signal(paymentResultSignal, {
       approved,
       mercadoPagoPaymentId,
+    });
+  }
+
+  private getClient(): Promise<Client> {
+    if (!this.clientPromise) {
+      this.clientPromise = this.connect().catch((error: unknown) => {
+        // Libera nova tentativa na próxima chamada
+        this.clientPromise = null;
+        this.logger.error(
+          'Falha ao conectar no Temporal',
+          error instanceof Error ? error.stack : undefined,
+        );
+        throw new ServiceUnavailableException(
+          'Orquestrador de pagamentos (Temporal) indisponível',
+        );
+      });
+    }
+    return this.clientPromise;
+  }
+
+  private async connect(): Promise<Client> {
+    this.connection = await Connection.connect({
+      address: this.config.get<string>('TEMPORAL_ADDRESS', 'localhost:7233'),
+    });
+    this.logger.log('Cliente Temporal conectado');
+    return new Client({
+      connection: this.connection,
+      namespace: this.config.get<string>('TEMPORAL_NAMESPACE', 'default'),
     });
   }
 }
