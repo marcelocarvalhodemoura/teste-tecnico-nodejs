@@ -47,12 +47,28 @@ src/
 
 Fluxo CREDIT_CARD com Temporal (`TEMPORAL_ENABLED=true`):
 
-1. API persiste pagamento `PENDING`
-2. Workflow Temporal cria preferência no Mercado Pago
-3. Webhook sinaliza o workflow (`paymentResult`)
-4. Workflow atualiza status para `PAID` ou `FAIL` de forma durável
+1. API persiste pagamento `PENDING` e inicia o workflow (falha ao iniciar → `FAIL`, HTTP 503)
+2. Workflow Temporal cria preferência no Mercado Pago e grava `externalId` + `checkoutUrl`
+   (o link fica disponível em `GET /api/payment/{id}`); se o MP falhar após os retries → `FAIL`
+3. Webhook sinaliza o workflow (`paymentResult`) apenas com status final
+4. Workflow atualiza status para `PAID` ou `FAIL` de forma durável (timeout de 24h → `FAIL`)
 
-Sem Temporal (`TEMPORAL_ENABLED=false`): criação síncrona da preferência + update direto no webhook.
+Sem Temporal (`TEMPORAL_ENABLED=false`): criação síncrona da preferência (resposta já traz
+`checkoutUrl`) + update direto no webhook.
+
+### Webhook Mercado Pago
+
+O webhook nunca confia no body: consulta o pagamento na API do MP e mapeia o status:
+
+| Status MP | Efeito |
+|-----------|--------|
+| `approved` | `PAID` |
+| `rejected`, `cancelled`, `refunded`, `charged_back` | `FAIL` |
+| `pending`, `in_process`, `authorized`, `in_mediation` | mantém `PENDING` (aguarda nova notificação) |
+
+Notificações de outro tipo, de pagamento já finalizado ou com referência desconhecida retornam
+`200` com `processed: false` (evita reenvio infinito pelo MP). Status são gravados com escrita
+condicional (só a partir de `PENDING`), então callbacks concorrentes não sobrescrevem um ao outro.
 
 ---
 
@@ -79,14 +95,17 @@ npx prisma migrate dev --name init
 npm run start:dev
 
 # Worker Temporal (em outro terminal, se TEMPORAL_ENABLED=true)
-npx ts-node -r tsconfig-paths/register src/infrastructure/temporal/worker.ts
+npm run worker:temporal
 ```
 
-Ou stack completa:
+Ou stack completa (Postgres, Temporal, API e worker):
 
 ```bash
 docker compose up --build
 ```
+
+> O compose roda a API com `NODE_ENV=production`, que exige `API_KEY` e
+> `MERCADOPAGO_WEBHOOK_SECRET` reais no `.env` (a API não sobe com o placeholder).
 
 - API: http://localhost:3000/api
 - Swagger: http://localhost:3000/api/docs
@@ -142,6 +161,7 @@ curl -X PUT http://localhost:3000/api/payment/{id} \
 ## Testes
 
 ```bash
+npm run lint:check    # ESLint + Prettier
 npm test              # unitários
 npm run test:e2e      # e2e com Testcontainers (Docker necessário)
 npm run test:temporal # workflow Temporal com time-skipping
@@ -157,8 +177,8 @@ npm run test:cov
 - Rate limiting (`@nestjs/throttler`)
 - Validação Zod em todas as entradas
 - Validação de env no boot
-- Assinatura HMAC do webhook + proteção contra replay (`ts`)
-- `Idempotency-Key` no POST e no Mercado Pago
+- Assinatura HMAC do webhook (obrigatória em production) + proteção contra replay (`ts`)
+- `Idempotency-Key` no POST e no Mercado Pago (mesma chave com payload diferente → 422)
 - CPF mascarado em logs; headers sensíveis redacted no Pino
 - Container non-root + multi-stage build
 - Body size limit (100kb)
@@ -166,7 +186,7 @@ npm run test:cov
 **Observabilidade**
 - Logs estruturados com `nestjs-pino`
 - `x-correlation-id` em toda request (gerado ou propagado)
-- Health check com verificação do Postgres
+- Health check com verificação do Postgres (503 quando o banco está fora)
 
 **Performance**
 - Índices Prisma em `cpf`, `payment_method`, `status`, `(cpf, created_at)`
