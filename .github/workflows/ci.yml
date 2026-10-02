@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://payment_user:payment_secret_change_me@localhost:5432/payment_db?schema=public
+      MERCADOPAGO_ACCESS_TOKEN: TEST-ci-token
+      TEMPORAL_ENABLED: "false"
+      API_KEY: ci-api-key-12345678
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run build
+      - run: npm test -- --coverage
+
+  e2e:
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      MERCADOPAGO_ACCESS_TOKEN: TEST-ci-token
+      TEMPORAL_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: E2E (Testcontainers)
+        run: npm run test:e2e
+
+  temporal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Temporal workflow tests (time-skipping)
+        run: npm run test:temporal

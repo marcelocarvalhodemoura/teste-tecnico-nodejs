@@ -1,0 +1,72 @@
+### Payment API — coleção HTTP (VS Code REST Client / IntelliJ)
+@baseUrl = http://localhost:3000/api
+@idempotencyKey = demo-key-001
+
+### Health
+GET {{baseUrl}}/health
+
+### Criar PIX
+POST {{baseUrl}}/payment
+Content-Type: application/json
+x-api-key: dev-api-key-change-me
+Idempotency-Key: {{idempotencyKey}}
+X-Correlation-Id: local-demo-1
+
+{
+  "cpf": "529.982.247-25",
+  "description": "Assinatura mensal",
+  "amount": 99.90,
+  "paymentMethod": "PIX"
+}
+
+### Replay idempotente (mesmo Idempotency-Key)
+POST {{baseUrl}}/payment
+Content-Type: application/json
+x-api-key: dev-api-key-change-me
+Idempotency-Key: {{idempotencyKey}}
+
+{
+  "cpf": "529.982.247-25",
+  "description": "Assinatura mensal",
+  "amount": 99.90,
+  "paymentMethod": "PIX"
+}
+
+### Criar CREDIT_CARD
+POST {{baseUrl}}/payment
+Content-Type: application/json
+x-api-key: dev-api-key-change-me
+
+{
+  "cpf": "529.982.247-25",
+  "description": "Compra notebook",
+  "amount": 3500.00,
+  "paymentMethod": "CREDIT_CARD"
+}
+
+### Listar com filtros
+GET {{baseUrl}}/payment?cpf=52998224725&paymentMethod=PIX&page=1&limit=20
+x-api-key: dev-api-key-change-me
+
+### Buscar por ID
+@paymentId = replace-with-uuid
+GET {{baseUrl}}/payment/{{paymentId}}
+x-api-key: dev-api-key-change-me
+
+### Atualizar description (PIX)
+PUT {{baseUrl}}/payment/{{paymentId}}
+Content-Type: application/json
+x-api-key: dev-api-key-change-me
+
+{
+  "description": "Assinatura mensal atualizada"
+}
+
+### Atualizar status (somente PIX — CREDIT_CARD retorna 409)
+PUT {{baseUrl}}/payment/{{paymentId}}
+Content-Type: application/json
+x-api-key: dev-api-key-change-me
+
+{
+  "status": "PAID"
+}
