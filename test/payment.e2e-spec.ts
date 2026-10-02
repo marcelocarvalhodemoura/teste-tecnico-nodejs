@@ -47,8 +47,7 @@ describe('Payment API (e2e)', () => {
       .useValue({
         createCheckoutPreference: jest.fn().mockImplementation(async (input: { paymentId: string }) => ({
           preferenceId: `pref-${input.paymentId}`,
-          initPoint: 'https://mp.example/checkout',
-          sandboxInitPoint: 'https://sandbox.mp.example/checkout',
+          checkoutUrl: 'https://sandbox.mp.example/checkout',
         })),
         getPayment: jest.fn(),
       })
@@ -156,6 +155,13 @@ describe('Payment API (e2e)', () => {
 
     expect(res.body.externalId).toMatch(/^pref-/);
     expect(res.body.checkoutUrl).toContain('sandbox.mp.example');
+
+    // checkoutUrl é persistido: GET devolve o mesmo link
+    const fetched = await request(app.getHttpServer())
+      .get(`/api/payment/${res.body.id}`)
+      .set('x-api-key', apiKey)
+      .expect(200);
+    expect(fetched.body.checkoutUrl).toBe(res.body.checkoutUrl);
   });
 
   it('PUT status manual em CREDIT_CARD retorna 409', async () => {

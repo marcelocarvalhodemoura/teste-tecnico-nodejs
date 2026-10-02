@@ -1,4 +1,7 @@
-import { ConflictException } from '@nestjs/common';
+import {
+  ConflictException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CreatePaymentUseCase } from './create-payment.use-case';
 import { PaymentMethod } from '@domain/payment/enums/payment-method.enum';
@@ -88,11 +91,40 @@ describe('CreatePaymentUseCase', () => {
     expect(result.id).toBe(existing.id);
   });
 
+  it('deve rejeitar Idempotency-Key reutilizada com payload diferente', async () => {
+    const existing = Payment.create({ ...dto, idempotencyKey: 'key-1' });
+    repository.findByIdempotencyKey.mockResolvedValue(existing);
+
+    await expect(
+      useCase.execute({ ...dto, amount: 999, idempotencyKey: 'key-1' }),
+    ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it('replay de CREDIT_CARD deve devolver o checkoutUrl persistido', async () => {
+    const existing = Payment.create({
+      ...dto,
+      paymentMethod: PaymentMethod.CREDIT_CARD,
+      idempotencyKey: 'key-card',
+    });
+    existing.attachCheckout('pref-1', 'https://sandbox.mp/checkout');
+    repository.findByIdempotencyKey.mockResolvedValue(existing);
+
+    const result = await useCase.execute({
+      ...dto,
+      paymentMethod: PaymentMethod.CREDIT_CARD,
+      idempotencyKey: 'key-card',
+    });
+
+    expect(result.idempotentReplay).toBe(true);
+    expect(result.checkoutUrl).toBe('https://sandbox.mp/checkout');
+    expect(gateway.createCheckoutPreference).not.toHaveBeenCalled();
+  });
+
   it('CREDIT_CARD: deve criar preferência no Mercado Pago (doc §3)', async () => {
     gateway.createCheckoutPreference.mockResolvedValue({
       preferenceId: 'pref-1',
-      initPoint: 'https://mp/checkout',
-      sandboxInitPoint: 'https://sandbox.mp/checkout',
+      checkoutUrl: 'https://sandbox.mp/checkout',
     });
 
     const result = await useCase.execute({

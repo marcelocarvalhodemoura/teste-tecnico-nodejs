@@ -15,8 +15,8 @@ export interface CreatePreferenceInput {
 
 export interface CreatePreferenceResult {
   preferenceId: string;
-  initPoint: string;
-  sandboxInitPoint?: string;
+  /** URL de checkout para o pagador (sandbox com credenciais de teste). */
+  checkoutUrl: string;
 }
 
 /**

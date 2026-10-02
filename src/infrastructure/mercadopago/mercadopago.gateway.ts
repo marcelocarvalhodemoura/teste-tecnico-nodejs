@@ -44,11 +44,14 @@ export class MercadoPagoGateway implements IPaymentGateway {
   private readonly client: MercadoPagoConfig;
   private readonly preferenceClient: Preference;
   private readonly paymentClient: Payment;
+  /** Credenciais TEST-… só funcionam no checkout sandbox. */
+  private readonly useSandbox: boolean;
 
   constructor(private readonly config: ConfigService) {
     const accessToken = this.config.getOrThrow<string>(
       'MERCADOPAGO_ACCESS_TOKEN',
     );
+    this.useSandbox = accessToken.startsWith('TEST-');
 
     this.client = new MercadoPagoConfig({
       accessToken,
@@ -100,15 +103,15 @@ export class MercadoPagoGateway implements IPaymentGateway {
       },
     });
 
-    if (!result.id) {
-      throw new Error('Mercado Pago não retornou preference id');
+    const checkoutUrl = this.useSandbox
+      ? result.sandbox_init_point
+      : result.init_point;
+
+    if (!result.id || !checkoutUrl) {
+      throw new Error('Mercado Pago não retornou preference id / init_point');
     }
 
-    return {
-      preferenceId: result.id,
-      initPoint: result.init_point ?? '',
-      sandboxInitPoint: result.sandbox_init_point,
-    };
+    return { preferenceId: result.id, checkoutUrl };
   }
 
   async getPayment(paymentId: string): Promise<MercadoPagoPaymentInfo> {

@@ -31,6 +31,8 @@ export interface PaymentProps {
   status: PaymentStatus;
   /** ID da preferência/checkout no Mercado Pago (CREDIT_CARD). */
   externalId?: string | null;
+  /** URL do checkout Mercado Pago para o pagador (CREDIT_CARD). */
+  checkoutUrl?: string | null;
   /** ID do pagamento confirmado no Mercado Pago (callback). */
   mercadoPagoPaymentId?: string | null;
   /**
@@ -77,6 +79,7 @@ export class Payment {
       paymentMethod: input.paymentMethod,
       status: PaymentStatus.PENDING,
       externalId: null,
+      checkoutUrl: null,
       mercadoPagoPaymentId: null,
       idempotencyKey: input.idempotencyKey?.trim() || null,
       createdAt: now,
@@ -117,6 +120,10 @@ export class Payment {
     return this.props.externalId;
   }
 
+  get checkoutUrl(): string | null | undefined {
+    return this.props.checkoutUrl;
+  }
+
   get mercadoPagoPaymentId(): string | null | undefined {
     return this.props.mercadoPagoPaymentId;
   }
@@ -154,11 +161,13 @@ export class Payment {
     );
   }
 
-  attachExternalId(externalId: string): void {
-    if (!externalId?.trim()) {
-      throw new InvalidPaymentDataError('externalId inválido');
+  /** Vincula a preferência Mercado Pago criada para este pagamento (CREDIT_CARD). */
+  attachCheckout(preferenceId: string, checkoutUrl: string): void {
+    if (!preferenceId?.trim() || !checkoutUrl?.trim()) {
+      throw new InvalidPaymentDataError('Preferência de checkout inválida');
     }
-    this.props.externalId = externalId.trim();
+    this.props.externalId = preferenceId.trim();
+    this.props.checkoutUrl = checkoutUrl.trim();
     this.touch();
   }
 
@@ -235,6 +244,7 @@ export class Payment {
       paymentMethod: this.props.paymentMethod,
       status: this.props.status,
       externalId: this.props.externalId ?? null,
+      checkoutUrl: this.props.checkoutUrl ?? null,
       mercadoPagoPaymentId: this.props.mercadoPagoPaymentId ?? null,
       idempotencyKey: this.props.idempotencyKey ?? null,
       createdAt: this.props.createdAt,

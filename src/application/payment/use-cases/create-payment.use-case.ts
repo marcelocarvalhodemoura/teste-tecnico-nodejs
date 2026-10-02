@@ -3,11 +3,13 @@ import {
   Injectable,
   ConflictException,
   Logger,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Payment } from '@domain/payment/entities/payment.entity';
 import { PaymentMethod } from '@domain/payment/enums/payment-method.enum';
 import { PaymentStatus } from '@domain/payment/enums/payment-status.enum';
+import { Money } from '@domain/payment/value-objects/money.vo';
 import {
   IPaymentRepository,
   PAYMENT_REPOSITORY,
@@ -38,7 +40,8 @@ export interface CreatePaymentCommand extends CreatePaymentDto {
  * CONSIDERAÇÃO (doc §4 — Temporal.io opcional):
  * Quando TEMPORAL_ENABLED=true, CREDIT_CARD é orquestrado via workflow durável.
  *
- * Idempotência: se Idempotency-Key já existir, retorna o pagamento original.
+ * Idempotência: se Idempotency-Key já existir com o mesmo payload, retorna o
+ * pagamento original; com payload diferente, responde 422.
  * =============================================================================
  */
 @Injectable()
@@ -64,12 +67,7 @@ export class CreatePaymentUseCase {
         this.logger.log(
           `Idempotency hit key=${dto.idempotencyKey} payment=${existing.id}`,
         );
-        return {
-          ...existing.toPrimitives(),
-          checkoutUrl: null,
-          workflowId: null,
-          idempotentReplay: true,
-        };
+        return this.replay(existing, dto);
       }
     }
 
@@ -92,12 +90,7 @@ export class CreatePaymentUseCase {
           dto.idempotencyKey,
         );
         if (existing) {
-          return {
-            ...existing.toPrimitives(),
-            checkoutUrl: null,
-            workflowId: null,
-            idempotentReplay: true,
-          };
+          return this.replay(existing, dto);
         }
       }
       throw error;
@@ -111,7 +104,6 @@ export class CreatePaymentUseCase {
       // doc §3 — PIX: apenas registro PENDING
       return {
         ...saved.toPrimitives(),
-        checkoutUrl: null,
         workflowId: null,
         idempotentReplay: false,
       };
@@ -133,11 +125,11 @@ export class CreatePaymentUseCase {
 
       return {
         ...saved.toPrimitives(),
-        checkoutUrl: null,
         workflowId,
         idempotentReplay: false,
         message:
-          'Pagamento CREDIT_CARD iniciado via Temporal workflow. Aguardando checkout/callback.',
+          'Pagamento CREDIT_CARD iniciado via Temporal workflow. O checkoutUrl fica ' +
+          'disponível em GET /api/payment/{id} assim que a preferência for criada.',
       };
     }
 
@@ -151,13 +143,11 @@ export class CreatePaymentUseCase {
         idempotencyKey: saved.idempotencyKey ?? saved.id,
       });
 
-      saved.attachExternalId(preference.preferenceId);
+      saved.attachCheckout(preference.preferenceId, preference.checkoutUrl);
       const updated = await this.paymentRepository.update(saved);
 
       return {
         ...updated.toPrimitives(),
-        checkoutUrl:
-          preference.sandboxInitPoint ?? preference.initPoint ?? null,
         workflowId: null,
         idempotentReplay: false,
       };
@@ -173,5 +163,29 @@ export class CreatePaymentUseCase {
         'Falha ao iniciar checkout no Mercado Pago. Pagamento marcado como FAIL.',
       );
     }
+  }
+
+  /**
+   * Replay idempotente: a mesma chave só pode ser reutilizada com o mesmo payload
+   * (evita que um retry com dados diferentes receba silenciosamente outro pagamento).
+   */
+  private replay(existing: Payment, dto: CreatePaymentCommand) {
+    const samePayload =
+      existing.cpf.getValue() === dto.cpf &&
+      existing.description === dto.description &&
+      existing.paymentMethod === dto.paymentMethod &&
+      existing.amount.equals(Money.fromReais(dto.amount));
+
+    if (!samePayload) {
+      throw new UnprocessableEntityException(
+        'Idempotency-Key já utilizada com um payload diferente',
+      );
+    }
+
+    return {
+      ...existing.toPrimitives(),
+      workflowId: null,
+      idempotentReplay: true,
+    };
   }
 }

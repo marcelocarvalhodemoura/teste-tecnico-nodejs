@@ -5,10 +5,12 @@
  * Isoladas do workflow para retry/idempotência.
  * =============================================================================
  */
-import { MercadoPagoConfig, Preference } from 'mercadopago';
+import { ConfigService } from '@nestjs/config';
 import { PrismaClient, PaymentStatus } from '@prisma/client';
+import { MercadoPagoGateway } from '../mercadopago/mercadopago.gateway';
 
 let prisma: PrismaClient | null = null;
+let gateway: MercadoPagoGateway | null = null;
 
 function getPrisma(): PrismaClient {
   if (!prisma) {
@@ -17,57 +19,34 @@ function getPrisma(): PrismaClient {
   return prisma;
 }
 
+/** Reutiliza o mesmo adapter da API (mesmo payload, back_urls e timeout). */
+function getGateway(): MercadoPagoGateway {
+  if (!gateway) {
+    gateway = new MercadoPagoGateway(new ConfigService(process.env));
+  }
+  return gateway;
+}
+
 export async function createMercadoPagoPreference(input: {
   paymentId: string;
   title: string;
   amount: number;
 }): Promise<{ preferenceId: string }> {
-  const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
-  if (!accessToken) {
-    throw new Error('MERCADOPAGO_ACCESS_TOKEN não configurado');
-  }
-
-  const client = new MercadoPagoConfig({
-    accessToken,
-    options: { timeout: 10_000 },
-  });
-  const preferenceClient = new Preference(client);
-
-  const result = await preferenceClient.create({
-    body: {
-      items: [
-        {
-          id: input.paymentId,
-          title: input.title,
-          quantity: 1,
-          unit_price: input.amount,
-          currency_id: 'BRL',
-        },
-      ],
-      external_reference: input.paymentId,
-      notification_url: process.env.MERCADOPAGO_NOTIFICATION_URL,
-      back_urls: {
-        success: process.env.MERCADOPAGO_BACK_URL_SUCCESS,
-        failure: process.env.MERCADOPAGO_BACK_URL_FAILURE,
-        pending: process.env.MERCADOPAGO_BACK_URL_PENDING,
-      },
-      auto_return: 'approved',
-    },
-    requestOptions: {
+  const { preferenceId, checkoutUrl } =
+    await getGateway().createCheckoutPreference({
+      paymentId: input.paymentId,
+      title: input.title,
+      amount: input.amount,
+      // Idempotência no MP: retries da activity não criam preferências duplicadas
       idempotencyKey: input.paymentId,
-    },
-  });
-
-  if (!result.id) {
-    throw new Error('Preferência Mercado Pago sem id');
-  }
+    });
 
   await getPrisma().payment.update({
     where: { id: input.paymentId },
-    data: { externalId: result.id },
+    data: { externalId: preferenceId, checkoutUrl },
   });
 
-  return { preferenceId: result.id };
+  return { preferenceId };
 }
 
 export async function updatePaymentStatus(input: {

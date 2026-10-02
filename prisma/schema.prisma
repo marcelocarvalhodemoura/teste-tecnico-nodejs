@@ -35,6 +35,8 @@ model Payment {
   paymentMethod        PaymentMethod @map("payment_method")
   status               PaymentStatus
   externalId           String?       @unique @map("external_id") @db.VarChar(128)
+  /// URL do checkout Mercado Pago (CREDIT_CARD) — disponível após criar a preferência
+  checkoutUrl          String?       @map("checkout_url") @db.VarChar(2048)
   mercadoPagoPaymentId String?       @map("mercado_pago_payment_id") @db.VarChar(128)
   /// Idempotency-Key do cliente — UNIQUE para retries seguros
   idempotencyKey       String?       @unique @map("idempotency_key") @db.VarChar(128)
