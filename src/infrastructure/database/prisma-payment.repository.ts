@@ -10,6 +10,7 @@ import {
   PaymentFilters,
   PaginatedResult,
 } from '@domain/payment/repositories/payment.repository';
+import { ConcurrentPaymentUpdateError } from '@domain/payment/errors/domain.errors';
 import { PrismaService } from './prisma.service';
 
 /**
@@ -82,19 +83,34 @@ export class PrismaPaymentRepository implements IPaymentRepository {
     };
   }
 
+  /**
+   * Escrita condicional (controle de concorrência otimista sobre o status):
+   * só grava se o registro ainda estiver PENDING ou já tiver o status desejado.
+   * Evita que dois callbacks/PUTs simultâneos sobrescrevam um ao outro
+   * (ex.: PAID virar FAIL). amount/cpf/paymentMethod são imutáveis — não são gravados.
+   */
   async update(payment: Payment): Promise<Payment> {
     const primitives = payment.toPrimitives();
-    const updated = await this.prisma.payment.update({
-      where: { id: primitives.id },
+    const { count } = await this.prisma.payment.updateMany({
+      where: {
+        id: primitives.id,
+        status: { in: [PaymentStatus.PENDING, primitives.status] },
+      },
       data: {
         description: primitives.description,
         status: primitives.status,
         externalId: primitives.externalId,
         checkoutUrl: primitives.checkoutUrl,
         mercadoPagoPaymentId: primitives.mercadoPagoPaymentId,
-        idempotencyKey: primitives.idempotencyKey,
-        amount: new Prisma.Decimal(primitives.amount.toFixed(2)),
       },
+    });
+
+    if (count === 0) {
+      throw new ConcurrentPaymentUpdateError(primitives.id);
+    }
+
+    const updated = await this.prisma.payment.findUniqueOrThrow({
+      where: { id: primitives.id },
     });
     return this.toDomain(updated);
   }

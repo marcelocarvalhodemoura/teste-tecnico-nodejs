@@ -34,6 +34,19 @@ export class InvalidStatusTransitionError extends DomainError {
 }
 
 /**
+ * O status mudou no banco entre a leitura e a escrita (ex.: dois callbacks simultâneos).
+ */
+export class ConcurrentPaymentUpdateError extends DomainError {
+  constructor(id: string) {
+    super(
+      `Pagamento ${id} foi alterado por outra operação. Consulte e tente novamente.`,
+      'CONCURRENT_UPDATE',
+      409,
+    );
+  }
+}
+
+/**
  * CREDIT_CARD: status só muda via callback Mercado Pago (não via PUT manual).
  */
 export class ManualCardStatusUpdateNotAllowedError extends DomainError {

@@ -54,8 +54,9 @@ export async function updatePaymentStatus(input: {
   status: 'PAID' | 'FAIL';
   mercadoPagoPaymentId: string | null;
 }): Promise<void> {
-  await getPrisma().payment.update({
-    where: { id: input.paymentId },
+  // Condicional: só finaliza se ainda estiver PENDING (idempotente em retries)
+  await getPrisma().payment.updateMany({
+    where: { id: input.paymentId, status: PaymentStatus.PENDING },
     data: {
       status: PaymentStatus[input.status],
       mercadoPagoPaymentId: input.mercadoPagoPaymentId,
