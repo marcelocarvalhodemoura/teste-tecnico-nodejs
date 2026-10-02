@@ -14,6 +14,15 @@ export class DomainError extends Error {
   }
 }
 
+/**
+ * Dados de pagamento inválidos (CPF, amount, descrição…) — regras dos VOs/entidade.
+ */
+export class InvalidPaymentDataError extends DomainError {
+  constructor(message: string) {
+    super(message, 'INVALID_PAYMENT_DATA', 422);
+  }
+}
+
 export class InvalidStatusTransitionError extends DomainError {
   constructor(from: string, to: string) {
     super(

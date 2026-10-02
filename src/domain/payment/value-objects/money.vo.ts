@@ -1,3 +1,5 @@
+import { InvalidPaymentDataError } from '../errors/domain.errors';
+
 /**
  * =============================================================================
  * CONSIDERAÇÃO TÉCNICA (doc §4): Validações de amount para integridade.
@@ -18,17 +20,17 @@ export class Money {
    */
   static fromReais(amount: number): Money {
     if (!Number.isFinite(amount) || amount <= 0) {
-      throw new Error('Valor (amount) deve ser um número positivo');
+      throw new InvalidPaymentDataError('Valor (amount) deve ser um número positivo');
     }
 
     // Limite defensivo contra overflow / abuso (R$ 1.000.000)
     if (amount > 1_000_000) {
-      throw new Error('Valor (amount) excede o limite máximo permitido');
+      throw new InvalidPaymentDataError('Valor (amount) excede o limite máximo permitido');
     }
 
     const cents = Math.round(amount * 100);
     if (cents <= 0) {
-      throw new Error('Valor (amount) deve ser maior que zero');
+      throw new InvalidPaymentDataError('Valor (amount) deve ser maior que zero');
     }
 
     return new Money(cents);
@@ -36,7 +38,7 @@ export class Money {
 
   static fromCents(cents: number): Money {
     if (!Number.isInteger(cents) || cents <= 0) {
-      throw new Error('Valor em centavos deve ser um inteiro positivo');
+      throw new InvalidPaymentDataError('Valor em centavos deve ser um inteiro positivo');
     }
     return new Money(cents);
   }

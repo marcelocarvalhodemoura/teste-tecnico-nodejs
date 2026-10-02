@@ -12,7 +12,8 @@ import { DomainError } from '@domain/payment/errors/domain.errors';
 /**
  * =============================================================================
  * Segurança / Observabilidade: filtro global de exceções.
- * Mapeamento: domínio → 422/409; não encontrado → 404; nunca vaza stack.
+ * Mapeamento: domínio → 422/409; HttpException → status próprio;
+ * qualquer outro erro → 500 genérico (nunca vaza stack nem mensagem interna).
  * =============================================================================
  */
 @Catch()
@@ -41,15 +42,18 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof HttpException) {
       status = exception.getStatus();
       message = exception.getResponse();
-    } else if (exception instanceof Error) {
-      status = HttpStatus.UNPROCESSABLE_ENTITY;
-      message = exception.message;
-      this.logger.warn(
-        { correlationId },
-        `Domain/error: ${exception.message}`,
-      );
     } else {
-      this.logger.error({ correlationId, exception }, 'Unhandled exception');
+      // Falhas de infraestrutura (Prisma, Mercado Pago, Temporal…): 500 genérico,
+      // detalhes só no log — nunca na resposta.
+      this.logger.error(
+        {
+          correlationId,
+          err: exception instanceof Error ? exception : undefined,
+        },
+        exception instanceof Error
+          ? `Unhandled exception: ${exception.message}`
+          : 'Unhandled exception',
+      );
     }
 
     const body =

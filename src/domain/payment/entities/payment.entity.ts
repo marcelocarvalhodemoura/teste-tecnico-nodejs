@@ -4,6 +4,7 @@ import { PaymentStatus } from '../enums/payment-status.enum';
 import { Cpf } from '../value-objects/cpf.vo';
 import { Money } from '../value-objects/money.vo';
 import {
+  InvalidPaymentDataError,
   InvalidStatusTransitionError,
   ManualCardStatusUpdateNotAllowedError,
 } from '../errors/domain.errors';
@@ -60,11 +61,11 @@ export class Payment {
   static create(input: CreatePaymentInput): Payment {
     const description = input.description?.trim();
     if (!description || description.length < 3 || description.length > 255) {
-      throw new Error('Descrição deve ter entre 3 e 255 caracteres');
+      throw new InvalidPaymentDataError('Descrição deve ter entre 3 e 255 caracteres');
     }
 
     if (!Object.values(PaymentMethod).includes(input.paymentMethod)) {
-      throw new Error('Meio de pagamento inválido');
+      throw new InvalidPaymentDataError('Meio de pagamento inválido');
     }
 
     const now = new Date();
@@ -155,7 +156,7 @@ export class Payment {
 
   attachExternalId(externalId: string): void {
     if (!externalId?.trim()) {
-      throw new Error('externalId inválido');
+      throw new InvalidPaymentDataError('externalId inválido');
     }
     this.props.externalId = externalId.trim();
     this.touch();
@@ -215,7 +216,7 @@ export class Payment {
   updateDescription(description: string): void {
     const trimmed = description?.trim();
     if (!trimmed || trimmed.length < 3 || trimmed.length > 255) {
-      throw new Error('Descrição deve ter entre 3 e 255 caracteres');
+      throw new InvalidPaymentDataError('Descrição deve ter entre 3 e 255 caracteres');
     }
     this.props.description = trimmed;
     this.touch();

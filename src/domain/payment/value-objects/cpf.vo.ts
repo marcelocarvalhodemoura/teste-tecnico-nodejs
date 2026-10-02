@@ -1,3 +1,5 @@
+import { InvalidPaymentDataError } from '../errors/domain.errors';
+
 /**
  * =============================================================================
  * CONSIDERAÇÃO TÉCNICA (doc §4): Validações para integridade do sistema.
@@ -16,15 +18,15 @@ export class Cpf {
     const digits = raw.replace(/\D/g, '');
 
     if (digits.length !== 11) {
-      throw new Error('CPF deve conter 11 dígitos');
+      throw new InvalidPaymentDataError('CPF deve conter 11 dígitos');
     }
 
     if (/^(\d)\1{10}$/.test(digits)) {
-      throw new Error('CPF inválido: sequência repetida');
+      throw new InvalidPaymentDataError('CPF inválido: sequência repetida');
     }
 
     if (!Cpf.isValidCheckDigits(digits)) {
-      throw new Error('CPF inválido: dígitos verificadores incorretos');
+      throw new InvalidPaymentDataError('CPF inválido: dígitos verificadores incorretos');
     }
 
     return new Cpf(digits);
