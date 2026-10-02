@@ -29,7 +29,6 @@ export const PAYMENT_REPOSITORY = Symbol('PAYMENT_REPOSITORY');
 export interface IPaymentRepository {
   save(payment: Payment): Promise<Payment>;
   findById(id: string): Promise<Payment | null>;
-  findByExternalId(externalId: string): Promise<Payment | null>;
   findByIdempotencyKey(key: string): Promise<Payment | null>;
   findMany(filters: PaymentFilters): Promise<PaginatedResult<Payment>>;
   update(payment: Payment): Promise<Payment>;

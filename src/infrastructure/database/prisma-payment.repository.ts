@@ -35,11 +35,6 @@ export class PrismaPaymentRepository implements IPaymentRepository {
     return row ? this.toDomain(row) : null;
   }
 
-  async findByExternalId(externalId: string): Promise<Payment | null> {
-    const row = await this.prisma.payment.findUnique({ where: { externalId } });
-    return row ? this.toDomain(row) : null;
-  }
-
   async findByIdempotencyKey(key: string): Promise<Payment | null> {
     const row = await this.prisma.payment.findUnique({
       where: { idempotencyKey: key },

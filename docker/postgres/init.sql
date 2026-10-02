@@ -5,5 +5,5 @@
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- A tabela será gerenciada pelo TypeORM (synchronize em dev / migrations em prod).
+-- As tabelas são gerenciadas pelas migrations do Prisma (prisma/migrations).
 -- Este script garante extensões e configurações iniciais do banco.

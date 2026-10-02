@@ -59,13 +59,3 @@ export class ManualCardStatusUpdateNotAllowedError extends DomainError {
     );
   }
 }
-
-export class ImmutablePaymentFieldError extends DomainError {
-  constructor(field: string) {
-    super(
-      `Campo '${field}' é imutável após a criação do pagamento`,
-      'IMMUTABLE_FIELD',
-      422,
-    );
-  }
-}

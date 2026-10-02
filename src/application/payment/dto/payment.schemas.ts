@@ -50,7 +50,11 @@ export const createPaymentSchema = z
       .number({ required_error: 'Amount é obrigatório' })
       .positive('Amount deve ser positivo')
       .max(1_000_000, 'Amount excede o limite máximo')
-      .refine((v) => Number.isFinite(v), { message: 'Amount inválido' }),
+      .refine((v) => Number.isFinite(v), { message: 'Amount inválido' })
+      // Centavos: evita arredondamento silencioso (ex.: 10.555)
+      .refine((v) => Math.abs(Math.round(v * 100) - v * 100) < 1e-6, {
+        message: 'Amount deve ter no máximo 2 casas decimais',
+      }),
     paymentMethod: z.nativeEnum(PaymentMethod, {
       errorMap: () => ({
         message: "paymentMethod deve ser 'PIX' ou 'CREDIT_CARD'",

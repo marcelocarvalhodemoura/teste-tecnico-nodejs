@@ -36,7 +36,6 @@ describe('CreatePaymentUseCase', () => {
     repository = {
       save: jest.fn(async (p: Payment) => p),
       findById: jest.fn(),
-      findByExternalId: jest.fn(),
       findByIdempotencyKey: jest.fn().mockResolvedValue(null),
       findMany: jest.fn(),
       update: jest.fn(async (p: Payment) => p),

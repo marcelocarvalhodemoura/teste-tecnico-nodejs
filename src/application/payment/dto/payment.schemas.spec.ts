@@ -46,4 +46,25 @@ describe('Payment Zod Schemas', () => {
       }),
     ).toThrow();
   });
+
+  it('deve rejeitar amount com mais de 2 casas decimais', () => {
+    expect(() =>
+      createPaymentSchema.parse({
+        cpf: '52998224725',
+        description: 'Teste',
+        amount: 10.555,
+        paymentMethod: PaymentMethod.PIX,
+      }),
+    ).toThrow(/2 casas decimais/);
+  });
+
+  it('deve aceitar amount com 2 casas decimais', () => {
+    const result = createPaymentSchema.parse({
+      cpf: '52998224725',
+      description: 'Teste',
+      amount: 0.29,
+      paymentMethod: PaymentMethod.PIX,
+    });
+    expect(result.amount).toBe(0.29);
+  });
 });

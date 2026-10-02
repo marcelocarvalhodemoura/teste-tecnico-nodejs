@@ -14,7 +14,6 @@ describe('UpdatePaymentUseCase', () => {
     repository = {
       save: jest.fn(),
       findById: jest.fn(),
-      findByExternalId: jest.fn(),
       findByIdempotencyKey: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(async (p) => p),

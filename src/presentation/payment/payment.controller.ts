@@ -11,6 +11,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import {
+  ApiBody,
   ApiTags,
   ApiOperation,
   ApiResponse,
@@ -31,6 +32,32 @@ import {
   ListPaymentsDto,
 } from '@application/payment/dto/payment.schemas';
 import { ZodValidationPipe } from '@shared/pipes/zod-validation.pipe';
+
+/** Schemas OpenAPI espelhando os schemas Zod (Swagger "Try it out"). */
+const createPaymentBody = {
+  type: 'object',
+  required: ['cpf', 'description', 'amount', 'paymentMethod'],
+  properties: {
+    cpf: { type: 'string', example: '529.982.247-25' },
+    description: {
+      type: 'string',
+      minLength: 3,
+      maxLength: 255,
+      example: 'Assinatura mensal',
+    },
+    amount: { type: 'number', minimum: 0.01, maximum: 1_000_000, example: 99.9 },
+    paymentMethod: { type: 'string', enum: ['PIX', 'CREDIT_CARD'], example: 'PIX' },
+  },
+};
+
+const updatePaymentBody = {
+  type: 'object',
+  description: 'Informe ao menos status ou description. Status manual apenas para PIX.',
+  properties: {
+    status: { type: 'string', enum: ['PENDING', 'PAID', 'FAIL'], example: 'PAID' },
+    description: { type: 'string', minLength: 3, maxLength: 255 },
+  },
+};
 
 /**
  * =============================================================================
@@ -61,6 +88,7 @@ export class PaymentController {
     required: false,
     description: 'Evita cobranças duplicadas em retries do cliente',
   })
+  @ApiBody({ schema: createPaymentBody })
   @ApiResponse({ status: 201, description: 'Pagamento criado (PENDING)' })
   @ApiResponse({ status: 400, description: 'Validação inválida (Zod)' })
   create(
@@ -92,6 +120,7 @@ export class PaymentController {
     summary:
       'Atualizar Pagamento (doc §1) — description; status só PIX (CREDIT_CARD via webhook)',
   })
+  @ApiBody({ schema: updatePaymentBody })
   @ApiResponse({ status: 409, description: 'Status manual em CREDIT_CARD' })
   update(
     @Param('id', new ZodValidationPipe(paymentIdSchema)) id: string,
