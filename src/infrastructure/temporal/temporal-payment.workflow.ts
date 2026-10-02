@@ -37,10 +37,7 @@ export class TemporalPaymentWorkflow
       return;
     }
 
-    this.taskQueue = this.config.get<string>(
-      'TEMPORAL_TASK_QUEUE',
-      'payment-processing',
-    );
+    this.taskQueue = this.config.get<string>('TEMPORAL_TASK_QUEUE', 'payment-processing');
 
     // Resiliência: API sobe mesmo se Temporal estiver indisponível no boot;
     // a conexão é refeita sob demanda na próxima requisição.

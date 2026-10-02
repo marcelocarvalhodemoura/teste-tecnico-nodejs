@@ -2,7 +2,6 @@ import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { ApiKeyGuard } from './api-key.guard';
-import { IS_PUBLIC_KEY } from '@shared/decorators/public.decorator';
 
 describe('ApiKeyGuard', () => {
   const makeGuard = (apiKey?: string, isPublic = false) => {

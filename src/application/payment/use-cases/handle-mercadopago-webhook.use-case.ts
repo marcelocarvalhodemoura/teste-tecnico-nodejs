@@ -14,8 +14,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { MercadoPagoWebhookDto } from '../dto/payment.schemas';
 
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * =============================================================================
@@ -61,9 +60,7 @@ export class HandleMercadoPagoWebhookUseCase {
     const externalReference = mpPayment.externalReference;
 
     if (!externalReference || !UUID_REGEX.test(externalReference)) {
-      this.logger.warn(
-        `Pagamento MP ${mpPaymentId} sem external_reference válido`,
-      );
+      this.logger.warn(`Pagamento MP ${mpPaymentId} sem external_reference válido`);
       return { processed: false, reason: 'missing_external_reference' };
     }
 
@@ -101,20 +98,14 @@ export class HandleMercadoPagoWebhookUseCase {
     const temporalEnabled = this.config.get<boolean>('TEMPORAL_ENABLED', false);
 
     if (temporalEnabled) {
-      await this.paymentWorkflow.signalPaymentResult(
-        payment.id,
-        approved,
-        mpPaymentId,
-      );
+      await this.paymentWorkflow.signalPaymentResult(payment.id, approved, mpPaymentId);
       return { processed: true, via: 'temporal_signal', paymentId: payment.id };
     }
 
     payment.applyMercadoPagoResult(mpPaymentId, approved);
     await this.paymentRepository.update(payment);
 
-    this.logger.log(
-      `Webhook processado payment=${payment.id} status=${payment.status}`,
-    );
+    this.logger.log(`Webhook processado payment=${payment.id} status=${payment.status}`);
 
     return {
       processed: true,

@@ -156,8 +156,7 @@ export class Payment {
 
   isTerminal(): boolean {
     return (
-      this.props.status === PaymentStatus.PAID ||
-      this.props.status === PaymentStatus.FAIL
+      this.props.status === PaymentStatus.PAID || this.props.status === PaymentStatus.FAIL
     );
   }
 
@@ -177,10 +176,7 @@ export class Payment {
    * - source=gateway: callback Mercado Pago (CREDIT_CARD)
    * amount/cpf/paymentMethod são imutáveis (nem existem no DTO de update).
    */
-  updateStatus(
-    newStatus: PaymentStatus,
-    source: StatusUpdateSource = 'manual',
-  ): void {
+  updateStatus(newStatus: PaymentStatus, source: StatusUpdateSource = 'manual'): void {
     if (this.props.status === newStatus) {
       return;
     }
@@ -193,10 +189,7 @@ export class Payment {
       throw new InvalidStatusTransitionError(this.props.status, newStatus);
     }
 
-    if (
-      newStatus !== PaymentStatus.PAID &&
-      newStatus !== PaymentStatus.FAIL
-    ) {
+    if (newStatus !== PaymentStatus.PAID && newStatus !== PaymentStatus.FAIL) {
       throw new InvalidStatusTransitionError(this.props.status, newStatus);
     }
 
@@ -208,18 +201,12 @@ export class Payment {
    * Callback Mercado Pago (doc §3): atualiza status com base na notificação.
    * Idempotente: se já estiver em estado terminal, não reprocessa.
    */
-  applyMercadoPagoResult(
-    mercadoPagoPaymentId: string,
-    approved: boolean,
-  ): void {
+  applyMercadoPagoResult(mercadoPagoPaymentId: string, approved: boolean): void {
     if (this.isTerminal()) {
       return;
     }
     this.props.mercadoPagoPaymentId = mercadoPagoPaymentId;
-    this.updateStatus(
-      approved ? PaymentStatus.PAID : PaymentStatus.FAIL,
-      'gateway',
-    );
+    this.updateStatus(approved ? PaymentStatus.PAID : PaymentStatus.FAIL, 'gateway');
   }
 
   updateDescription(description: string): void {

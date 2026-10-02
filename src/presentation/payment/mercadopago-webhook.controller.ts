@@ -67,9 +67,7 @@ export class MercadoPagoWebhookController {
   ): void {
     const secret = this.config.get<string>('MERCADOPAGO_WEBHOOK_SECRET');
     if (!secret || secret === 'your-webhook-secret-here') {
-      this.logger.warn(
-        'Webhook sem validação de assinatura (secret não configurado)',
-      );
+      this.logger.warn('Webhook sem validação de assinatura (secret não configurado)');
       return;
     }
 

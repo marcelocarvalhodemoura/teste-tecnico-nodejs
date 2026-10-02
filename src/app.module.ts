@@ -49,9 +49,7 @@ import { ApiKeyGuard } from '@shared/guards/api-key.guard';
         genReqId: (req, res) => {
           const existing = req.headers['x-correlation-id'];
           const id =
-            typeof existing === 'string' && existing.length > 0
-              ? existing
-              : randomUUID();
+            typeof existing === 'string' && existing.length > 0 ? existing : randomUUID();
           res.setHeader('x-correlation-id', id);
           return id;
         },
@@ -82,11 +80,7 @@ import { ApiKeyGuard } from '@shared/guards/api-key.guard';
       ],
     }),
   ],
-  controllers: [
-    PaymentController,
-    MercadoPagoWebhookController,
-    HealthController,
-  ],
+  controllers: [PaymentController, MercadoPagoWebhookController, HealthController],
   providers: [
     {
       provide: APP_GUARD,

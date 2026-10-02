@@ -2,7 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import * as request from 'supertest';
-import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import {
+  PostgreSqlContainer,
+  StartedPostgreSqlContainer,
+} from '@testcontainers/postgresql';
 import { execSync } from 'child_process';
 import { AppModule } from '../src/app.module';
 import { PAYMENT_GATEWAY } from '../src/domain/payment/gateways/payment-gateway.port';
@@ -51,10 +54,12 @@ describe('Payment API (e2e)', () => {
     })
       .overrideProvider(PAYMENT_GATEWAY)
       .useValue({
-        createCheckoutPreference: jest.fn().mockImplementation(async (input: { paymentId: string }) => ({
-          preferenceId: `pref-${input.paymentId}`,
-          checkoutUrl: 'https://sandbox.mp.example/checkout',
-        })),
+        createCheckoutPreference: jest
+          .fn()
+          .mockImplementation(async (input: { paymentId: string }) => ({
+            preferenceId: `pref-${input.paymentId}`,
+            checkoutUrl: 'https://sandbox.mp.example/checkout',
+          })),
         getPayment: jest.fn(),
       })
       .compile();

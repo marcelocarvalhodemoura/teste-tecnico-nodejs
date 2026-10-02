@@ -38,9 +38,7 @@ export interface MercadoPagoPaymentInfo {
 export const PAYMENT_GATEWAY = Symbol('PAYMENT_GATEWAY');
 
 export interface IPaymentGateway {
-  createCheckoutPreference(
-    input: CreatePreferenceInput,
-  ): Promise<CreatePreferenceResult>;
+  createCheckoutPreference(input: CreatePreferenceInput): Promise<CreatePreferenceResult>;
 
   getPayment(paymentId: string): Promise<MercadoPagoPaymentInfo>;
 }

@@ -32,14 +32,13 @@ export async function createMercadoPagoPreference(input: {
   title: string;
   amount: number;
 }): Promise<{ preferenceId: string }> {
-  const { preferenceId, checkoutUrl } =
-    await getGateway().createCheckoutPreference({
-      paymentId: input.paymentId,
-      title: input.title,
-      amount: input.amount,
-      // Idempotência no MP: retries da activity não criam preferências duplicadas
-      idempotencyKey: input.paymentId,
-    });
+  const { preferenceId, checkoutUrl } = await getGateway().createCheckoutPreference({
+    paymentId: input.paymentId,
+    title: input.title,
+    amount: input.amount,
+    // Idempotência no MP: retries da activity não criam preferências duplicadas
+    idempotencyKey: input.paymentId,
+  });
 
   await getPrisma().payment.update({
     where: { id: input.paymentId },

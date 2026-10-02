@@ -25,7 +25,9 @@ export class Money {
 
     // Limite defensivo contra overflow / abuso (R$ 1.000.000)
     if (amount > 1_000_000) {
-      throw new InvalidPaymentDataError('Valor (amount) excede o limite máximo permitido');
+      throw new InvalidPaymentDataError(
+        'Valor (amount) excede o limite máximo permitido',
+      );
     }
 
     const cents = Math.round(amount * 100);

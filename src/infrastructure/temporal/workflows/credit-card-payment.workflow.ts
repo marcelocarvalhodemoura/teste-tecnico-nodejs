@@ -11,7 +11,12 @@
  * Se o servidor cair, o workflow continua de onde parou.
  * =============================================================================
  */
-import { proxyActivities, defineSignal, setHandler, condition } from '@temporalio/workflow';
+import {
+  proxyActivities,
+  defineSignal,
+  setHandler,
+  condition,
+} from '@temporalio/workflow';
 import type * as activities from '../payment.activities';
 
 const { createMercadoPagoPreference, updatePaymentStatus } = proxyActivities<
@@ -26,9 +31,8 @@ const { createMercadoPagoPreference, updatePaymentStatus } = proxyActivities<
 });
 
 /** Signal recebido pelo webhook quando o Mercado Pago notifica o resultado. */
-export const paymentResultSignal = defineSignal<
-  [{ approved: boolean; mercadoPagoPaymentId: string }]
->('paymentResult');
+export const paymentResultSignal =
+  defineSignal<[{ approved: boolean; mercadoPagoPaymentId: string }]>('paymentResult');
 
 export interface CreditCardWorkflowInput {
   paymentId: string;

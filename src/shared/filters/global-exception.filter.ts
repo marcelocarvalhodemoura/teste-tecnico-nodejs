@@ -24,8 +24,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request & { id?: string }>();
-    const correlationId =
-      (request.headers['x-correlation-id'] as string) || request.id;
+    const correlationId = (request.headers['x-correlation-id'] as string) || request.id;
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string | object = 'Erro interno do servidor';
@@ -35,10 +34,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       status = exception.httpHint;
       message = exception.message;
       code = exception.code;
-      this.logger.warn(
-        { correlationId, code },
-        `DomainError: ${exception.message}`,
-      );
+      this.logger.warn({ correlationId, code }, `DomainError: ${exception.message}`);
     } else if (exception instanceof HttpException) {
       status = exception.getStatus();
       message = exception.getResponse();

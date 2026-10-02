@@ -10,7 +10,13 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiHeader, ApiSecurity } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiHeader,
+  ApiSecurity,
+} from '@nestjs/swagger';
 import { CreatePaymentUseCase } from '@application/payment/use-cases/create-payment.use-case';
 import { UpdatePaymentUseCase } from '@application/payment/use-cases/update-payment.use-case';
 import { GetPaymentByIdUseCase } from '@application/payment/use-cases/get-payment-by-id.use-case';
@@ -71,9 +77,7 @@ export class PaymentController {
   @ApiOperation({
     summary: 'Listar Pagamentos com filtros CPF / meio de pagamento (doc §1)',
   })
-  findAll(
-    @Query(new ZodValidationPipe(listPaymentsSchema)) query: ListPaymentsDto,
-  ) {
+  findAll(@Query(new ZodValidationPipe(listPaymentsSchema)) query: ListPaymentsDto) {
     return this.listPayments.execute(query);
   }
 

@@ -58,14 +58,8 @@ async function bootstrap() {
     .addTag('payments')
     .addTag('webhooks')
     .addTag('health')
-    .addApiKey(
-      { type: 'apiKey', name: 'Idempotency-Key', in: 'header' },
-      'idempotency',
-    )
-    .addApiKey(
-      { type: 'apiKey', name: 'x-api-key', in: 'header' },
-      'api-key',
-    )
+    .addApiKey({ type: 'apiKey', name: 'Idempotency-Key', in: 'header' }, 'idempotency')
+    .addApiKey({ type: 'apiKey', name: 'x-api-key', in: 'header' }, 'api-key')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

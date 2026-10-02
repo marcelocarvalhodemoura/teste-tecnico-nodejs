@@ -141,11 +141,7 @@ describe('HandleMercadoPagoWebhookUseCase', () => {
     });
 
     expect(result.via).toBe('temporal_signal');
-    expect(workflow.signalPaymentResult).toHaveBeenCalledWith(
-      payment.id,
-      true,
-      '999',
-    );
+    expect(workflow.signalPaymentResult).toHaveBeenCalledWith(payment.id, true, '999');
     expect(repository.update).not.toHaveBeenCalled();
   });
 

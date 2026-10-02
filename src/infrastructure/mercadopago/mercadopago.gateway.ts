@@ -48,9 +48,7 @@ export class MercadoPagoGateway implements IPaymentGateway {
   private readonly useSandbox: boolean;
 
   constructor(private readonly config: ConfigService) {
-    const accessToken = this.config.getOrThrow<string>(
-      'MERCADOPAGO_ACCESS_TOKEN',
-    );
+    const accessToken = this.config.getOrThrow<string>('MERCADOPAGO_ACCESS_TOKEN');
     this.useSandbox = accessToken.startsWith('TEST-');
 
     this.client = new MercadoPagoConfig({
@@ -67,14 +65,10 @@ export class MercadoPagoGateway implements IPaymentGateway {
   async createCheckoutPreference(
     input: CreatePreferenceInput,
   ): Promise<CreatePreferenceResult> {
-    const notificationUrl = this.config.get<string>(
-      'MERCADOPAGO_NOTIFICATION_URL',
-    );
+    const notificationUrl = this.config.get<string>('MERCADOPAGO_NOTIFICATION_URL');
     const idempotencyKey = input.idempotencyKey ?? input.paymentId;
 
-    this.logger.log(
-      `Criando preferência Mercado Pago para paymentId=${input.paymentId}`,
-    );
+    this.logger.log(`Criando preferência Mercado Pago para paymentId=${input.paymentId}`);
 
     const result = await this.preferenceClient.create({
       body: {
@@ -103,9 +97,7 @@ export class MercadoPagoGateway implements IPaymentGateway {
       },
     });
 
-    const checkoutUrl = this.useSandbox
-      ? result.sandbox_init_point
-      : result.init_point;
+    const checkoutUrl = this.useSandbox ? result.sandbox_init_point : result.init_point;
 
     if (!result.id || !checkoutUrl) {
       throw new Error('Mercado Pago não retornou preference id / init_point');
