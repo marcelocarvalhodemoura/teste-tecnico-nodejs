@@ -84,6 +84,35 @@ services:
     networks:
       - payment-network
 
+  # -------------------------------------------------------------------------
+  # Worker Temporal (doc §4): executa o workflow CREDIT_CARD e suas activities.
+  # Necessário quando TEMPORAL_ENABLED=true; mesma imagem da API.
+  # -------------------------------------------------------------------------
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: payment-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      temporal:
+        condition: service_started
+      # API aplica as migrations no start
+      api:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${DB_USERNAME:-payment_user}:${DB_PASSWORD:-payment_secret_change_me}@postgres:5432/${DB_DATABASE:-payment_db}?schema=public
+      TEMPORAL_ADDRESS: temporal:7233
+    command: ["node", "dist/infrastructure/temporal/worker.js"]
+    healthcheck:
+      disable: true
+    networks:
+      - payment-network
+
 volumes:
   postgres_data:
 
