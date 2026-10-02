@@ -2,7 +2,8 @@
   "name": "payment-api",
   "version": "1.0.0",
   "description": "API REST para gestão do ciclo de vida de cobranças — PIX e Cartão de Crédito (Mercado Pago)",
-  "author": "Senior Node.js Challenge",
+  "author": "Marcelo Carvalho de Moura",
+  "email": "marcelo@devwev.com.br",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
