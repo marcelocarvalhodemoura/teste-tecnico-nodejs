@@ -84,7 +84,8 @@ condicional (só a partir de `PENDING`), então callbacks concorrentes não sobr
 
 ```bash
 cp .env.example .env
-# Edite MERCADOPAGO_ACCESS_TOKEN e URLs de notificação
+# Preencha ao menos DATABASE_URL e MERCADOPAGO_ACCESS_TOKEN
+# (variáveis vazias usam o default; ex.: postgresql://payment_user:payment_secret_change_me@localhost:15432/payment_db?schema=public)
 
 # Infra (Postgres na porta 15432 para não conflitar com Postgres local)
 docker compose up -d postgres

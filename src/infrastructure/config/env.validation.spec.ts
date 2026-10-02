@@ -38,4 +38,18 @@ describe('validateEnv', () => {
     });
     expect(env.NODE_ENV).toBe('production');
   });
+
+  it('trata variáveis vazias como ausentes (aplica defaults)', () => {
+    const env = validateEnv({
+      ...base,
+      NODE_ENV: '',
+      PORT: '',
+      MERCADOPAGO_NOTIFICATION_URL: '',
+      TEMPORAL_ENABLED: '',
+    });
+    expect(env.NODE_ENV).toBe('development');
+    expect(env.PORT).toBe(3000);
+    expect(env.MERCADOPAGO_NOTIFICATION_URL).toBeUndefined();
+    expect(env.TEMPORAL_ENABLED).toBe(false);
+  });
 });

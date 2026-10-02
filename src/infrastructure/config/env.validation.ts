@@ -84,7 +84,13 @@ export const envSchema = z
 export type EnvConfig = z.infer<typeof envSchema>;
 
 export function validateEnv(config: Record<string, unknown>): EnvConfig {
-  const parsed = envSchema.safeParse(config);
+  // `VAR=` (vazia, como no .env.example) equivale a não definida → aplica o default
+  const withoutEmpty = Object.fromEntries(
+    Object.entries(config).filter(
+      ([, value]) => !(typeof value === 'string' && value.trim() === ''),
+    ),
+  );
+  const parsed = envSchema.safeParse(withoutEmpty);
   if (!parsed.success) {
     const details = parsed.error.errors
       .map((e) => `${e.path.join('.')}: ${e.message}`)
